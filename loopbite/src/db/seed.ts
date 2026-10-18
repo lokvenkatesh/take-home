@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { inArray, isNull } from "drizzle-orm";
+import { seedLibrary } from "@/lib/rag/library";
 import { db } from "./index";
 import { users, listings, claims, reports, announcements, dismissals } from "./schema";
 
@@ -106,6 +107,9 @@ async function main() {
     { kind: "alert", title: "Baker Hall pickups use the side door today", body: "The back entrance is closed for repairs until 6 PM.", audience: "all", startsAt: hoursFromNow(-1), endsAt: hoursFromNow(8) },
     { kind: "alert", title: "Hot food reminder", body: "Keep hot food at 135°F or above until pickup, and post it within 2 hours.", audience: "donors", startsAt: hoursFromNow(-1), endsAt: hoursFromNow(48) },
   ]);
+
+  const docs = await seedLibrary();
+  console.log(`Safety library: ${docs} documents.`);
 
   console.log(
     `Seeded ${seededUsers.length} users, ${seededListings.length} listings, 1 claim.`,

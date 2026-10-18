@@ -8,8 +8,8 @@ import { INSIGHT_EVENT } from "./InsightButton";
 function Cited({ text, cited }: { text: string; cited: Set<string> }) {
   return (
     <>
-      {text.split(/(\[S\d{1,2}\])/g).map((p, i) => {
-        const m = p.match(/^\[(S\d{1,2})\]$/);
+      {text.split(/(\[S\d+\])/g).map((p, i) => {
+        const m = p.match(/^\[(S\d+)\]$/);
         return m && cited.has(m[1])
           ? <span key={i} className="badge neutral mx-0.5 align-middle">{m[1]}</span>
           : <span key={i}>{p}</span>;
@@ -97,10 +97,10 @@ export function InsightDrawer() {
                 </ul>
               )}
 
-              {data.insight.sources.some((s) => s.cited) && (
+              {data.insight.sources.some((s) => s.cited || data.insight.mode === "rules") && (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-2">Sources</p>
-                  {data.insight.sources.filter((s) => s.cited).map((s) => (
+                  <p className="text-xs font-semibold uppercase tracking-wide text-ink-2">{data.insight.mode === "rules" ? "Related guidance" : "Sources"}</p>
+                  {data.insight.sources.filter((s) => s.cited || data.insight.mode === "rules").map((s) => (
                     <details key={s.id} className="mt-1 text-sm">
                       <summary className="cursor-pointer font-semibold text-teal">{s.id}: {s.title}</summary>
                       <p className="mt-1 text-xs">{s.text}</p>

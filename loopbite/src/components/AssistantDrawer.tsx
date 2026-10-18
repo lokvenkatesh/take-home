@@ -55,11 +55,11 @@ export function AssistantDrawer({ role }: { role: "student" | "donor" | "admin" 
         <div className="flex items-start justify-between gap-3 border-b border-line p-4">
           <div>
             <p className="font-display text-lg font-bold">LoopBite assistant</p>
-            <p className="text-sm text-ink-2">Food-safety answers, with sources you can check.</p>
+            <p className="text-sm text-ink-2">Ask anything. Food-safety answers cite their sources.</p>
           </div>
           <button type="button" onClick={() => setOpen(false)} className="link" aria-label="Close assistant">Close</button>
         </div>
-        <AssistantChat suggestions={SUGGESTIONS[role]} intro="Try one of these, or ask your own:" listen autoFocus={open} />
+        <AssistantChat suggestions={SUGGESTIONS[role]} intro="Ask me anything about LoopBite or food. Or try one of these:" listen autoFocus={open} />
       </aside>
     </>
   );

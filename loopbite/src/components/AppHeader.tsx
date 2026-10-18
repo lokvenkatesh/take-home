@@ -25,6 +25,7 @@ const LINKS = {
     { href: "/admin", label: "Trust and safety" },
     { href: "/admin/users", label: "Accounts" },
     { href: "/admin/announcements", label: "Events and alerts" },
+    { href: "/admin/library", label: "Safety library" },
   ],
 };
 

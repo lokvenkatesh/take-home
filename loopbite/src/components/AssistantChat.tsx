@@ -6,10 +6,10 @@ import { askAssistant, type AssistantReply } from "@/app/actions/assistant";
 type Turn = { id: number; question: string; reply?: AssistantReply; error?: string };
 
 const MODE_NOTE: Record<AssistantReply["mode"], string> = {
-  claude: "Answered from LoopBite's safety library. Guidance only.",
-  extractive: "Closest guidance from the library. Add an Anthropic API key for written answers.",
-  fallback: "Showing the closest guidance from the library.",
-  declined: "Not covered by the library, so the assistant didn't guess.",
+  claude: "Answered by Claude. Food-safety facts come from LoopBite's library.",
+  extractive: "Closest passage from the safety library. Add an Anthropic API key for full chat.",
+  fallback: "Showing the closest passage from the safety library.",
+  declined: "Not covered by the safety library, so the assistant didn't guess.",
 };
 
 // Other parts of the app can send a question with:
@@ -38,16 +38,23 @@ export function AssistantChat({
   function ask(raw: string) {
     const question = raw.trim();
     if (!question || pending) return;
+    // The last few exchanges go along, so follow-up questions make sense
+    const history = turns
+      .filter((t) => t.reply)
+      .slice(-4)
+      .flatMap((t) => [
+        { role: "user" as const, text: t.question },
+        { role: "assistant" as const, text: t.reply!.text },
+      ]);
     const id = Date.now();
     setTurns((t) => [...t, { id, question }]);
     setText("");
     startTransition(async () => {
-      const r = await askAssistant(question, listingId);
+      const r = await askAssistant(question, listingId, history);
       setTurns((t) => t.map((x) => (x.id !== id ? x : "error" in r ? { ...x, error: r.error } : { ...x, reply: r })));
     });
   }
 
-  // Keep the newest message in view
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [turns]);
@@ -56,7 +63,6 @@ export function AssistantChat({
     if (autoFocus) inputRef.current?.focus();
   }, [autoFocus]);
 
-  // Questions sent from elsewhere in the app, like the AI form fill's safety warnings
   useEffect(() => {
     if (!listen) return;
     const onAsk = (e: Event) => ask((e as CustomEvent<string>).detail);
@@ -87,7 +93,7 @@ export function AssistantChat({
             {t.error ? (
               <p className="badge crit">{t.error}</p>
             ) : !t.reply ? (
-              <p className="text-sm text-ink-2"><span className="spin" aria-hidden="true" />Looking it up…</p>
+              <p className="text-sm text-ink-2"><span className="spin" aria-hidden="true" />Thinking…</p>
             ) : (
               <ReplyBubble reply={t.reply} />
             )}
@@ -97,9 +103,9 @@ export function AssistantChat({
       </div>
 
       <form onSubmit={(e) => { e.preventDefault(); ask(text); }} className="flex gap-2 border-t border-line bg-surface p-3">
-        <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} maxLength={300}
-          placeholder="Ask about food safety…" aria-label="Your question" className="lb-in min-w-0 flex-1" />
-        <button disabled={pending || !text.trim()} className="btn">Ask</button>
+        <input ref={inputRef} value={text} onChange={(e) => setText(e.target.value)} maxLength={500}
+          placeholder="Ask LoopBite anything…" aria-label="Your message" className="lb-in min-w-0 flex-1" />
+        <button disabled={pending || !text.trim()} className="btn">Send</button>
       </form>
     </div>
   );
@@ -107,23 +113,25 @@ export function AssistantChat({
 
 function ReplyBubble({ reply }: { reply: AssistantReply }) {
   const cited = new Set(reply.cited);
-  const parts = reply.text.split(/(\[S\d{1,2}\])/g);
+  const parts = reply.text.split(/(\[S\d+\])/g);
 
   return (
     <div className={`reveal mr-8 rounded-2xl rounded-bl-sm border p-3 text-sm ${reply.covered ? "border-line bg-surface" : "border-gold bg-gold-soft"}`}>
-      <p className="leading-relaxed">
+      <p className="whitespace-pre-line leading-relaxed">
         {parts.map((p, i) => {
-          const m = p.match(/^\[(S\d{1,2})\]$/);
+          const m = p.match(/^\[(S\d+)\]$/);
           return m && cited.has(m[1])
             ? <span key={i} className="badge neutral mx-0.5 align-middle">{m[1]}</span>
             : <span key={i}>{p}</span>;
         })}
       </p>
       {reply.sources.filter((s) => s.cited).map((s) => (
-        <details key={s.id} className="mt-2">
-          <summary className="cursor-pointer text-xs font-semibold text-teal">{s.id}: {s.title}</summary>
+        <details key={s.ref} className="mt-2">
+          <summary className="cursor-pointer text-xs font-semibold text-teal">{s.ref}: {s.title}</summary>
           <p className="mt-1 text-xs">{s.text}</p>
-          <p className="text-xs text-ink-2">{s.source}</p>
+          <p className="text-xs text-ink-2">
+            {s.url ? <a href={s.url} target="_blank" rel="noopener noreferrer" className="link text-xs">{s.source}</a> : s.source}
+          </p>
         </details>
       ))}
       <p className="mt-2 text-xs text-ink-2">{MODE_NOTE[reply.mode]}</p>

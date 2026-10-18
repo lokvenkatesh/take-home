@@ -4,8 +4,8 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { listings, safetyQuestions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
-import { answerQuestion, type AnswerMode, type ListingContext } from "@/lib/rag/answer";
-import { sourceIdsFor } from "@/lib/ai/listing-insight";
+import { answerQuestion, type AnswerMode, type ChatTurn, type ListingContext, type Source } from "@/lib/rag/answer";
+import { listingQuery } from "@/lib/ai/listing-insight";
 import { formatMinutes } from "@/lib/listings";
 
 export type AssistantReply = {
@@ -13,17 +13,25 @@ export type AssistantReply = {
   cited: string[];
   mode: AnswerMode;
   covered: boolean;
-  sources: { id: string; title: string; source: string; text: string; cited: boolean }[];
+  sources: (Source & { cited: boolean })[];
 };
 
-export async function askAssistant(question: string, listingId?: string): Promise<AssistantReply | { error: string }> {
+export async function askAssistant(
+  question: string,
+  listingId?: string,
+  history: ChatTurn[] = [],
+): Promise<AssistantReply | { error: string }> {
   const user = await getCurrentUser();
-  if (!user) return { error: "Sign in to ask questions." };
+  if (!user) return { error: "Sign in to chat with the assistant." };
 
-  const q = question.trim().slice(0, 300);
-  if (q.length < 4) return { error: "Type a question first." };
+  const q = String(question ?? "").trim().slice(0, 500);
+  if (q.length < 2) return { error: "Type a message first." };
 
-  // Questions about a specific listing get its facts, plus the guidance that applies to it
+  // History comes from the browser, so check its shape
+  const safeHistory = (Array.isArray(history) ? history : [])
+    .filter((h) => (h?.role === "user" || h?.role === "assistant") && typeof h.text === "string")
+    .slice(-8);
+
   let listing: ListingContext | undefined;
   if (listingId && /^[0-9a-f-]{36}$/i.test(listingId)) {
     const [l] = await db.select().from(listings).where(eq(listings.id, listingId)).limit(1);
@@ -37,30 +45,25 @@ export async function askAssistant(question: string, listingId?: string): Promis
           `Allergens listed: ${l.allergens.join(", ") || "none listed"}. Diet tags: ${l.dietary.join(", ") || "none"}.`,
           `Good for: ${goodFor > 0 ? `about ${formatMinutes(goodFor)} more, according to the café` : "expired"}.`,
         ].join("\n"),
-        sourceIds: sourceIdsFor(l),
+        query: listingQuery(l),
       };
     }
   }
-  const a = await answerQuestion(q, listing);
 
-  // Same log as the Food safety page, so admins see every question
+  const a = await answerQuestion(q, { listing, history: safeHistory });
+
+  // Logged, so admins can see what the library doesn't cover yet
   await db.insert(safetyQuestions).values({
     userId: user.id,
     question: q,
-    topSource: a.hits[0]?.doc.id ?? null,
-    topScore: Math.round((a.hits[0]?.score ?? 0) * 100),
+    topSource: a.topRef,
+    topScore: Math.round(a.topScore * 100),
     answered: a.covered,
     mode: a.mode,
   });
 
-  const cited = new Set(a.cited);
   return {
-    text: a.text,
-    cited: a.cited,
-    mode: a.mode,
-    covered: a.covered,
-    sources: a.hits
-      .filter((h) => h.score > 0 || cited.has(h.doc.id))
-      .map((h) => ({ id: h.doc.id, title: h.doc.title, source: h.doc.source, text: h.doc.text, cited: cited.has(h.doc.id) })),
+    text: a.text, cited: a.cited, mode: a.mode, covered: a.covered,
+    sources: a.sources.map((s) => ({ ...s, cited: a.cited.includes(s.ref) })),
   };
 }

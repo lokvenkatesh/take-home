@@ -1,6 +1,6 @@
 import { sql } from "drizzle-orm";
 import {
-  pgTable, pgEnum, uuid, text, integer, boolean, timestamp, index, uniqueIndex,
+  pgTable, pgEnum, uuid, text, integer, boolean, serial, timestamp, index, uniqueIndex,
 } from "drizzle-orm/pg-core";
 
 // Enums: Postgres rejects any value not in these lists
@@ -141,4 +141,30 @@ export const safetyQuestions = pgTable(
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => [index("safety_questions_created_idx").on(t.createdAt)],
+);
+
+
+// The food-safety library, managed by admins. Each document is split into chunks for retrieval.
+export const safetyDocs = pgTable("safety_docs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  slug: text("slug").notNull().unique(),
+  title: text("title").notNull(),
+  source: text("source").notNull(),
+  url: text("url"),
+  body: text("body").notNull(),
+  active: boolean("active").notNull().default(true),
+  createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
+
+export const safetyChunks = pgTable(
+  "safety_chunks",
+  {
+    id: serial("id").primaryKey(), // cited in answers as S<id>
+    docId: uuid("doc_id").notNull().references(() => safetyDocs.id, { onDelete: "cascade" }),
+    position: integer("position").notNull(),
+    text: text("text").notNull(),
+  },
+  (t) => [index("safety_chunks_doc_idx").on(t.docId)],
 );

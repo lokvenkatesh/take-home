@@ -287,3 +287,13 @@
 .ai-chip svg { width: 15px; height: 15px; transition: transform 0.3s cubic-bezier(0.2, 1.6, 0.4, 1); }
 .ai-chip:hover { background: var(--teal); color: var(--on-teal); }
 .ai-chip:hover svg { transform: rotate(20deg) scale(1.15); }
+
+/* ---------- Bigger text everywhere ---------- */
+html { font-size: 112.5%; } /* 18px base: Tailwind sizes and spacing scale with it */
+.badge { font-size: 14px; padding: 5px 11px; }
+.l-donor, .l-meta { font-size: 15px; }
+.f { font-size: 15px; }
+.tabs a { font-size: 17px; }
+.ticker { font-size: 17px; }
+.top .link, .link { font-size: 16px; }
+.ai-chip { font-size: 14px; }
