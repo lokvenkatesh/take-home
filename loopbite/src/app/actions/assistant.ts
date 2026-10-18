@@ -4,6 +4,7 @@ import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { listings, safetyQuestions } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { rateLimit, tooMany } from "@/lib/rate-limit";
 import { answerQuestion, type AnswerMode, type ChatTurn, type ListingContext, type Source } from "@/lib/rag/answer";
 import { listingQuery } from "@/lib/ai/listing-insight";
 import { formatMinutes } from "@/lib/listings";
@@ -23,6 +24,9 @@ export async function askAssistant(
 ): Promise<AssistantReply | { error: string }> {
   const user = await getCurrentUser();
   if (!user) return { error: "Sign in to chat with the assistant." };
+
+  const chatLimit = await rateLimit(`ai:chat:${user.id}`, 30, 60 * 60);
+  if (!chatLimit.ok) return { error: `You've sent a lot of messages. ${tooMany(chatLimit.retryAfterSec)}` };
 
   const q = String(question ?? "").trim().slice(0, 500);
   if (q.length < 2) return { error: "Type a message first." };

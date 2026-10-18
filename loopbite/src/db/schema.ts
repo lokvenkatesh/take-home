@@ -168,3 +168,11 @@ export const safetyChunks = pgTable(
   },
   (t) => [index("safety_chunks_doc_idx").on(t.docId)],
 );
+
+
+// One row per rate-limit key, like "login:email:x@y.com" or "ai:chat:<user id>"
+export const rateLimits = pgTable("rate_limits", {
+  key: text("key").primaryKey(),
+  count: integer("count").notNull().default(0),
+  windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
+});

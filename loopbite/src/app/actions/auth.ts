@@ -7,6 +7,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createSession, deleteSession } from "@/lib/session";
+import { clientIp, limitLogin, rateLimit, tooMany } from "@/lib/rate-limit";
 
 export type FormState = { error?: string } | undefined;
 
@@ -27,6 +28,9 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
   if (!parsed.success) return { error: parsed.error.issues[0].message };
 
   const { name, email, password, role, businessName } = parsed.data;
+  const signupLimit = await rateLimit(`signup:ip:${await clientIp()}`, 5, 60 * 60);
+  if (!signupLimit.ok) return { error: tooMany(signupLimit.retryAfterSec) };
+
   if (role === "donor" && !businessName) {
     return { error: "Donors need a business name" };
   }
@@ -61,6 +65,9 @@ const loginSchema = z.object({
 export async function login(_prev: FormState, formData: FormData): Promise<FormState> {
   const parsed = loginSchema.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { error: parsed.error.issues[0].message };
+
+  const limited = await limitLogin(parsed.data.email);
+  if (limited) return { error: limited };
 
   const [user] = await db
     .select()

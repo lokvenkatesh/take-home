@@ -11,7 +11,8 @@
     "test:race": "node --env-file=.env.local --import tsx src/scripts/race.ts",
     "admin:create": "node --conditions=react-server --env-file=.env.local --import tsx src/scripts/create-admin.ts",
     "rag:eval": "node --conditions=react-server --import tsx src/scripts/rag-eval.ts",
-    "rag:seed": "node --conditions=react-server --env-file=.env.local --import tsx src/scripts/rag-seed.ts"
+    "rag:seed": "node --conditions=react-server --env-file=.env.local --import tsx src/scripts/rag-seed.ts",
+    "test": "node --conditions=react-server --import tsx --test src/tests/*.test.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.135.0",

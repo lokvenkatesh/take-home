@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { claims, listings, reports } from "@/db/schema";
 import { getCurrentUser } from "@/lib/auth";
+import { rateLimit, tooMany } from "@/lib/rate-limit";
 import { reasonsFor } from "@/lib/reports";
 
 export type ReportState = { error?: string; sentId?: string } | undefined;
@@ -18,6 +19,9 @@ const input = z.object({
 export async function submitReport(_prev: ReportState, formData: FormData): Promise<ReportState> {
   const user = await getCurrentUser();
   if (!user || (user.role !== "student" && user.role !== "donor")) throw new Error("Forbidden");
+
+  const reportLimit = await rateLimit(`report:${user.id}`, 10, 24 * 60 * 60);
+  if (!reportLimit.ok) return { error: tooMany(reportLimit.retryAfterSec) };
 
   const parsed = input.safeParse({
     listingId: formData.get("listingId"),
