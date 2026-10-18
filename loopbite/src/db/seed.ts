@@ -29,6 +29,8 @@ async function main() {
     ])
     .returning();
 
+  await db.update(users).set({ emailVerifiedAt: new Date() }).where(inArray(users.email, DEMO_EMAILS));
+
   const [, hall, cafe, maya, ravi] = seededUsers;
 
   const seededListings = await db

@@ -20,10 +20,10 @@ async function main() {
   const [existing] = await db.select({ id: users.id }).from(users).where(eq(users.email, email)).limit(1);
   if (existing) {
     await db.update(users)
-      .set({ role: "admin", passwordHash, mustChangePassword: true, blockedAt: null })
+      .set({ role: "admin", passwordHash, mustChangePassword: true, blockedAt: null, emailVerifiedAt: new Date() })
       .where(eq(users.id, existing.id));
   } else {
-    await db.insert(users).values({ email, name, role: "admin", passwordHash, mustChangePassword: true });
+    await db.insert(users).values({ email, name, role: "admin", passwordHash, mustChangePassword: true, emailVerifiedAt: new Date() });
   }
 
   console.log(`\nAdmin ready: ${email}`);

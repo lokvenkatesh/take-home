@@ -66,6 +66,7 @@ export async function createAccount(_prev: CreateAccountState, formData: FormDat
     passwordHash: await bcrypt.hash(password, 10),
     businessName: role === "donor" ? businessName : null,
     mustChangePassword: true,
+    emailVerifiedAt: new Date(),
   });
 
   refresh();

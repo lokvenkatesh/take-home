@@ -28,6 +28,7 @@ export const users = pgTable("users", {
   dietNeeds: text("diet_needs").array().notNull().default(sql`'{}'::text[]`),
   mustChangePassword: boolean("must_change_password").notNull().default(false),
   isAdmin: boolean("is_admin").notNull().default(false), // admin access added to a student or café
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }), // null until they click the link
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
@@ -176,3 +177,19 @@ export const rateLimits = pgTable("rate_limits", {
   count: integer("count").notNull().default(0),
   windowStart: timestamp("window_start", { withTimezone: true }).notNull().defaultNow(),
 });
+
+
+// One-time email links. Only a hash of the token is stored.
+export const emailTokens = pgTable(
+  "email_tokens",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    purpose: text("purpose").notNull(), // "verify"
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("email_tokens_user_idx").on(t.userId)],
+);

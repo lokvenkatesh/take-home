@@ -8,8 +8,9 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { createSession, deleteSession } from "@/lib/session";
 import { clientIp, limitLogin, rateLimit, tooMany } from "@/lib/rate-limit";
+import { sendVerificationEmail } from "@/lib/email-verification";
 
-export type FormState = { error?: string } | undefined;
+export type FormState = { error?: string; unverified?: string } | undefined;
 
 const HOME = { donor: "/donor", student: "/feed", admin: "/admin" } as const;
 
@@ -53,8 +54,12 @@ export async function signup(_prev: FormState, formData: FormData): Promise<Form
     })
     .returning({ id: users.id, role: users.role });
 
-  await createSession({ userId: user.id, role: user.role });
-  redirect(HOME[user.role]);
+  try {
+    await sendVerificationEmail({ id: user.id, email, name });
+  } catch (e) {
+    console.error("Couldn't send the confirmation email.", e); // they can resend from the next page
+  }
+  redirect(`/check-email?email=${encodeURIComponent(email)}`);
 }
 
 const loginSchema = z.object({
@@ -79,6 +84,10 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
     return { error: "Email or password is incorrect" };
   }
 
+  if (!user.emailVerifiedAt) {
+    return { error: "Please confirm your email first. Check your inbox for the link we sent.", unverified: user.email };
+  }
+
   await createSession({ userId: user.id, role: user.role });
   redirect(user.mustChangePassword ? "/account?first=1" : HOME[user.role]);
 }
@@ -86,4 +95,28 @@ export async function login(_prev: FormState, formData: FormData): Promise<FormS
 export async function logout() {
   await deleteSession();
   redirect("/login");
+}
+export type ResendState = { message?: string } | undefined;
+
+// Same reply whether or not the account exists, so it can't be used to check emails
+export async function resendVerification(_prev: ResendState, formData: FormData): Promise<ResendState> {
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const generic = { message: "If that account still needs confirming, we've sent a new link. Check your inbox and spam folder." };
+  if (!email.includes("@")) return generic;
+
+  const [byEmail, byIp] = await Promise.all([
+    rateLimit(`verify:email:${email}`, 3, 60 * 60),
+    rateLimit(`verify:ip:${await clientIp()}`, 10, 60 * 60),
+  ]);
+  if (!byEmail.ok || !byIp.ok) return { message: tooMany(Math.max(byEmail.retryAfterSec, byIp.retryAfterSec)) };
+
+  const [u] = await db
+    .select({ id: users.id, email: users.email, name: users.name, verified: users.emailVerifiedAt })
+    .from(users)
+    .where(eq(users.email, email))
+    .limit(1);
+  if (u && !u.verified) {
+    try { await sendVerificationEmail(u); } catch (e) { console.error("Couldn't resend the confirmation email.", e); }
+  }
+  return generic;
 }
