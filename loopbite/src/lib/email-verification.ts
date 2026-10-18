@@ -10,7 +10,7 @@ const hash = (token: string) => createHash("sha256").update(token).digest("hex")
 const DAY = 24 * 60 * 60 * 1000;
 
 // The site's address, for building the link. APP_URL wins if it's set.
-async function appUrl() {
+export async function appUrl() {
   if (process.env.APP_URL) return process.env.APP_URL.replace(/\/$/, "");
   const h = await headers();
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? "localhost:3000";

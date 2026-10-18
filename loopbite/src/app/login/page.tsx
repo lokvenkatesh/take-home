@@ -30,6 +30,12 @@ function LoginForm() {
         </p>
       )}
 
+      {params.get("reset") === "1" && (
+        <p role="status" className="reveal mt-4 rounded-lg bg-teal-soft px-3 py-2 text-sm font-semibold text-teal">
+          Password updated. Sign in with your new password.
+        </p>
+      )}
+
       <form action={action} className="mt-6 space-y-4">
         <label className={label}>
           Email
@@ -39,6 +45,9 @@ function LoginForm() {
           Password
           <input name="password" type="password" autoComplete="current-password" required className={input} />
         </label>
+        <div className="-mt-2 text-right">
+          <Link href="/forgot-password" className="link text-sm">Forgot password?</Link>
+        </div>
         {state?.error && (
           <p role="alert" className="rounded-lg bg-crit-soft px-3 py-2 text-sm font-semibold text-crit">{state.error}</p>
         )}
